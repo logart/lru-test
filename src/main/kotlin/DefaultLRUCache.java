@@ -3,77 +3,79 @@ import java.util.Map;
 
 public class DefaultLRUCache<T> implements LRUCache<T> {
 
-    private int capacity = 0;
-    private final Map<String, T> values;
-    private final Map<String, Integer> keyPosition;
-    private final String[] usageOrder;
+    private final Map<String, LRURecord<T>> values;
     private final int size;
-    private int usageTimeSize = 0;
-    private int leastRecentlyUsedIndex = 0;
+    private int capacity = 0;
+    private LRURecord<T> leastRecentlyUsedRecord = null;
+    private LRURecord<T> mostRecentlyUsedRecord = null;
 
     public DefaultLRUCache(int size) {
         this.size = size;
         this.values = new HashMap<>(size);
-        this.keyPosition = new HashMap<>(size);
-        this.usageOrder = new String[size];
     }
 
     @Override
     public T get(String key) {
-        updateUsageTime(key);
-        return values.get(key);
+        LRURecord<T> record = values.get(key);
+        if (record == null) {
+            return null;
+        }
+        setMostRecentlyUsed(record);
+        return record.getValue();
     }
 
     @Override
     public void set(String key, T value) {
-        if (capacity > 0 && capacity >= size) {
-            String lruKey = removeRecentlyUsedKey();
-            values.remove(lruKey);
-            keyPosition.remove(lruKey);
+        LRURecord<T> newRecord = new LRURecord<>(key, value);
+        if (capacity == 0) {
+            leastRecentlyUsedRecord = newRecord;
+        }
+        if (capacity >= size) {
+            LRURecord<T> lruRecord = removeRecentlyUsedKey();
+            values.remove(lruRecord.getKey());
             capacity--;
         }
         capacity++;
         assert capacity <= size;
-        values.put(key, value);
-        updateUsageTime(key);
+        setMostRecentlyUsed(newRecord);
+        values.put(key, newRecord);
     }
 
-    private String removeRecentlyUsedKey() {
-        String lruKey = usageOrder[leastRecentlyUsedIndex];
-        usageOrder[leastRecentlyUsedIndex] = null;
-        updateLeastRecentlyUsedIndex();
-        return lruKey;
-    }
-
-    public long getUsageTime(String key) {
-        return keyPosition.getOrDefault(key, -1);
-    }
-
-    private void updateUsageTime(String key) {
-        Integer position = keyPosition.get(key);
-        if (position != null) {
-            usageOrder[position] = null;
-            if (leastRecentlyUsedIndex == position) {
-                updateLeastRecentlyUsedIndex();
+    private LRURecord<T> removeRecentlyUsedKey() {
+        LRURecord<T> currentLeastRecentlyUsedRecord = leastRecentlyUsedRecord;
+        if (leastRecentlyUsedRecord != null) {
+            leastRecentlyUsedRecord = leastRecentlyUsedRecord.getNext();
+            if (leastRecentlyUsedRecord != null) {
+                leastRecentlyUsedRecord.setPrev(null);
             }
         }
-
-        usageOrder[usageTimeSize] = key;
-        keyPosition.put(key, usageTimeSize);
-        updateUsageTimeSize();
+        return currentLeastRecentlyUsedRecord;
     }
 
-    private void updateLeastRecentlyUsedIndex() {
-        if (leastRecentlyUsedIndex == size) {
-            leastRecentlyUsedIndex = -1;
+    private void setMostRecentlyUsed(LRURecord<T> newMostRecentlyUsedRecord) {
+        LRURecord<T> currentMostRecentlyUsedRecord = mostRecentlyUsedRecord;
+        LRURecord<T> currentLeastRecentlyUsedRecord = leastRecentlyUsedRecord;
+        if (currentLeastRecentlyUsedRecord == newMostRecentlyUsedRecord) {
+            leastRecentlyUsedRecord = currentLeastRecentlyUsedRecord.getNext();
         }
-        leastRecentlyUsedIndex++;
-    }
+        if (currentMostRecentlyUsedRecord != null) {
+            // tie prev and next together
+            LRURecord<T> prev = newMostRecentlyUsedRecord.getPrev();
+            LRURecord<T> next = newMostRecentlyUsedRecord.getNext();
+            if (prev != null) {
+                prev.setNext(next);
+            }
+            if (next != null) {
+                next.setPrev(prev);
+            }
 
-    private int updateUsageTimeSize() {
-        if (usageTimeSize == size - 1) {
-            usageTimeSize = -1;
+            newMostRecentlyUsedRecord.setPrev(currentMostRecentlyUsedRecord);
+            newMostRecentlyUsedRecord.setNext(null);
+            currentMostRecentlyUsedRecord.setNext(newMostRecentlyUsedRecord);
         }
-        return usageTimeSize++;
+        mostRecentlyUsedRecord = newMostRecentlyUsedRecord;
+        if (leastRecentlyUsedRecord == null) {
+            leastRecentlyUsedRecord = mostRecentlyUsedRecord;
+        }
     }
 }

@@ -20,22 +20,6 @@ public class LRUCacheTest {
     }
 
     @Test
-    public void should_update_usage_time_on_set() {
-        DefaultLRUCache cache = new DefaultLRUCache<String>(1);
-        long currentTime = System.currentTimeMillis();
-        cache.set("key1", "value1");
-        assertThat(cache.getUsageTime("key1")).isEqualTo(0);
-    }
-
-    @Test
-    public void should_update_usage_time_on_get() {
-        DefaultLRUCache cache = new DefaultLRUCache<String>(1);
-        long currentTime = System.currentTimeMillis();
-        cache.get("key1");
-        assertThat(cache.getUsageTime("key1")).isEqualTo(0);
-    }
-
-    @Test
     public void should_remove_least_recently_used_element_when_capacity_is_reached() {
         LRUCache cache = new DefaultLRUCache<String>(1);
         cache.set("key1", "value1");
